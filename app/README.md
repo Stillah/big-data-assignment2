@@ -7,17 +7,17 @@ This folder stores the text documents required to index. Here you can find a sam
 ### mapreduce
 This folder stores the mapper `mapperx.py` and reducer `reducerx.py` scripts for the MapReduce pipelines.
 
-
 ### app.py
 This is a Python file to write code to store index data in Cassandra.
-
 
 ### app.sh
 The entrypoint for the executables in your repository and includes all commands that will run your programs in this folder.
 
-### index.sh
-A script to index a folder/file whose path is passed as an argument. This will run the MapReduce pipelines and the programs to store data in Cassandra.
+### create_index.sh
+A script to create index data using MapReduce pipelines and store them in HDFS.
 
+### index.sh
+A script to run the MapReduce pipelines and the programs to store data in Cassandra/ScyllaDB.
 
 ### prepare_data.py
 The script that will create documents from parquet file. You can run it in the driver.
