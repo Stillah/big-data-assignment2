@@ -18,15 +18,13 @@ services:
     hostname: cluster-master
     tty: true
     working_dir: /app
-    # Memory constraints
-    mem_limit: 3g          # Maximum memory (adjust to 2g, 4g, 8g as needed)
-    memswap_limit: 6g 
-    mem_reservation: 1g    # Reserved memory (optional)
-    # You can comment the entrypoint to run the script manually inside the container
+    mem_limit: 3g
+    memswap_limit: 3g
+    mem_reservation: 1g
     entrypoint: 
       - bash
       - /app/app.sh
-    
+
   cluster-slave-1:
     image: firasj/spark-docker-cluster
     container_name: cluster-slave-1
@@ -35,7 +33,7 @@ services:
     hostname: cluster-slave-1
     tty: true
     mem_limit: 3g
-    memswap_limit: 6g 
+    memswap_limit: 3g
     mem_reservation: 1g
 
   cluster-slave-2:
@@ -48,7 +46,7 @@ services:
     hostname: cluster-slave-2
     tty: true
     mem_limit: 3g
-    memswap_limit: 6g 
+    memswap_limit: 3g 
     mem_reservation: 1g
 
   scylla-master:
@@ -59,7 +57,7 @@ services:
     networks:
       - spark-cluster
     mem_limit: 2g
-    memswap_limit: 6g 
+    memswap_limit: 2g
     mem_reservation: 1g
 
 networks:

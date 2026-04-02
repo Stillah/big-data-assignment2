@@ -7,7 +7,7 @@ CASSANDRA_HOST="${CASSANDRA_HOST:-scylla-master}"
 CASSANDRA_PORT="${CASSANDRA_PORT:-9042}"
 
 QUERY="$1"
-status "Query: $QUERY"
+echo "Query: $QUERY"
 
 # Get script directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -36,8 +36,21 @@ spark-submit \
     --archives "$SCRIPT_DIR/.venv.tar.gz#.venv" \
     --conf spark.executorEnv.PYSPARK_PYTHON="./.venv/bin/python" \
     --conf spark.executorEnv.PYSPARK_DRIVER_PYTHON="$PYSPARK_DRIVER_PYTHON" \
+    --driver-memory 1g \
+    --executor-memory 1g \
+    --executor-cores 1 \
+    --num-executors 1 \
+    --conf spark.executor.memoryOverhead=1024 \
+    --conf spark.driver.memoryOverhead=1024 \
+    --conf spark.yarn.am.memory=1g \
+    --conf spark.yarn.am.memoryOverhead=256 \
+    --conf spark.dynamicAllocation.enabled=false \
+    --conf spark.sql.shuffle.partitions=4 \
+    --conf spark.cassandra.connection.timeoutMS=60000 \
     --conf spark.network.timeout=180s \
     --conf spark.rpc.askTimeout=180s \
+    --conf spark.sql.adaptive.enabled=false \
+    --conf spark.speculation=false \
     --conf spark.cassandra.connection.host="$CASSANDRA_HOST" \
     --conf spark.cassandra.connection.port="$CASSANDRA_PORT" \
     --conf spark.cassandra.connection.timeoutMS=60000 \

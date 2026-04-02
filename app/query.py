@@ -47,7 +47,8 @@ class BM25Searcher:
         vocab_df = self.read_cassandra_table("vocabulary")
         # Cache and broadcast
         vocab_df = vocab_df.cache()
-        logger.info(f"Loaded {vocab_df.count()} terms")
+        # Removed full count() to avoid timeout
+        logger.info("Vocabulary DataFrame cached")
         return vocab_df
     
     def load_document_stats(self):
@@ -63,8 +64,8 @@ class BM25Searcher:
         
         stats_df = self.read_cassandra_table("collection_stats")
         
-        # Convert to dict
-        rows = stats_df.select("stat_name", "stat_value").collect()
+        # Use take() instead of collect() to avoid pulling all rows at once
+        rows = stats_df.select("stat_name", "stat_value").take(100)  # collection stats are few
         collection_stats = {row.stat_name: row.stat_value for row in rows}
         
         logger.info(f"Loaded {len(collection_stats)} collection statistics")
@@ -157,9 +158,11 @@ class BM25Searcher:
         collection_stats_bcast = self.load_collection_stats()
 
         
-        # Filter query terms using DatFrame
+        # Filter query terms using DataFrame
         existing_terms_df = vocab_df.filter(col("term").isin(query_terms))
-        existing_query_terms = [row.term for row in existing_terms_df.select("term").collect()]
+        # Use take() instead of collect() to limit rows fetched
+        existing_query_terms_rows = existing_terms_df.select("term").take(1000)  # at most 1000 terms
+        existing_query_terms = [row.term for row in existing_query_terms_rows]
         if not existing_query_terms:
             logger.warning("No query terms found in vocabulary")
             return []
@@ -178,12 +181,13 @@ class BM25Searcher:
             .orderBy(col("bm25_score").desc()) \
             .limit(top_k)
         
-        # Collect results while Cassandra connection is active
+        # Collect results using take() instead of collect()
         try:
-            top_results = [(row.doc_id, float(row.bm25_score)) for row in top_results_df.collect()]
+            top_rows = top_results_df.take(top_k)
+            top_results = [(row.doc_id, float(row.bm25_score)) for row in top_rows]
             logger.info(f"Collected {len(top_results)} results")
         except Exception as e:
-            logger.error(f"Failed to collect results: {e}", exc_info=True) # Might time out here
+            logger.error(f"Failed to collect results: {e}", exc_info=True)
             top_results = []
         
         return top_results
@@ -231,7 +235,7 @@ def main():
         
         # Search
         query = args.query
-        results = searcher.search(query, top_k=1)
+        results = searcher.search(query, top_k=5)
         
         # Display results
         print("\n" + "=" * 75)
@@ -241,7 +245,8 @@ def main():
         if results:
             print(f"\n{len(results)} most relevant document(s):\n")
             for rank, (doc_id, score) in enumerate(results, 1):
-                print(f"{rank:2d}. {doc_id}")
+                title = doc_id[doc_id.find('_') + 1 : -4]
+                print(f"{rank:2d}. {title}")
                 print(f"    Score: {score:.4f}")
                 print()
         else:

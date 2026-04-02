@@ -24,12 +24,13 @@ venv-pack -o .venv.tar.gz
 bash prepare_data.sh
 
 echo "Success (?)"
-# # Run the indexer
+# Run the indexer
 bash index.sh /data
 
-# # Run the ranker
-bash search.sh "test"
+# Run the ranker
+bash search.sh "test query"
 
-bash search.sh "I love big data"
+bash search.sh "i love big data"
 
-bash search.sh "and this assignment"
+bash search.sh "please work"
+

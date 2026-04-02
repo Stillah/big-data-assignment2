@@ -40,7 +40,7 @@ def main():
     parser = argparse.ArgumentParser(description="Verify data loaded into ScyllaDB")
     parser.add_argument(
         "--host",
-        default="localhost",
+        default="scylla-master",
         help="ScyllaDB host (default: localhost)"
     )
     parser.add_argument(

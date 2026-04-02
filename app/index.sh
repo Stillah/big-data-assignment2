@@ -46,8 +46,3 @@ echo ""
 echo "Indexing Complete!"
 echo "Index is now available in ScyllaDB for search queries"
 echo ""
-
-
-
-
-# DO NOT TOUCH ANYTHING OK?

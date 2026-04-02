@@ -36,20 +36,8 @@ echo "Cleaned old outputs"
 echo ""
 echo "Running Pipeline 1: Tokenization & Term Extraction\n"
 hadoop jar "$STREAMING_JAR" \
-    -D yarn.nodemanager.aux-services=mapreduce_shuffle \
-    -D yarn.nodemanager.aux-services.mapreduce_shuffle.class=org.apache.hadoop.mapred.ShuffleHandler \
-    -D mapreduce.shuffle.port=13562 \
-    -D yarn.nodemanager.hostname=$(hostname -i) \
-    -D mapreduce.job.maps=2 \
-    -D mapreduce.job.reduces=2 \
-    -D mapreduce.reduce.shuffle.connect.timeout=300000 \
-    -D mapreduce.reduce.shuffle.read.timeout=300000 \
-    -D dfs.client.socket-timeout=600000 \
-    -D mapreduce.reduce.memory.mb=2048 \
-    -D mapreduce.reduce.java.opts="-Xmx1536m -XX:+UseG1GC -XX:MaxGCPauseMillis=200" \
-    -D mapreduce.map.memory.mb=1024 \
-    -D mapreduce.map.java.opts="-Xmx768m" \
-    -D mapreduce.task.timeout=3600000 \
+    -D mapreduce.job.maps=4 \
+    -D mapreduce.job.reduces=4 \
     -input "$HDFS_INPUT_PATH" \
     -output "$HDFS_TEMP" \
     -mapper "python3 -u mapper1.py" \
@@ -62,20 +50,8 @@ echo "Pipeline 1 completed"
 echo ""
 echo "Running Pipeline 2: Index Finalization"
 hadoop jar "$STREAMING_JAR" \
-    -D yarn.nodemanager.aux-services=mapreduce_shuffle \
-    -D yarn.nodemanager.aux-services.mapreduce_shuffle.class=org.apache.hadoop.mapred.ShuffleHandler \
-    -D mapreduce.shuffle.port=13562 \
-    -D yarn.nodemanager.hostname=$(hostname -i) \
-    -D mapreduce.job.maps=2 \
-    -D mapreduce.job.reduces=2 \
-    -D mapreduce.reduce.shuffle.connect.timeout=300000 \
-    -D mapreduce.reduce.shuffle.read.timeout=300000 \
-    -D dfs.client.socket-timeout=600000 \
-    -D mapreduce.reduce.memory.mb=2048 \
-    -D mapreduce.reduce.java.opts="-Xmx1536m -XX:+UseG1GC -XX:MaxGCPauseMillis=200" \
-    -D mapreduce.map.memory.mb=1024 \
-    -D mapreduce.map.java.opts="-Xmx768m" \
-    -D mapreduce.task.timeout=3600000 \
+    -D mapreduce.job.maps=4 \
+    -D mapreduce.job.reduces=4 \
     -input "$HDFS_TEMP" \
     -output "$HDFS_OUTPUT" \
     -mapper "python3 -u mapper2.py" \
