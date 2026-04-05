@@ -14,14 +14,18 @@ services:
       - spark-cluster
     depends_on:
       - cluster-slave-1
-      - cassandra-server
+      - scylla-master
     hostname: cluster-master
     tty: true
     working_dir: /app
+    # Memory constraints
+    mem_limit: 3g          # Maximum memory (adjust to 2g, 4g, 8g as needed)
+    memswap_limit: 6g 
+    mem_reservation: 1g    # Reserved memory (optional)
     # You can comment the entrypoint to run the script manually inside the container
-    entrypoint: 
-      - bash
-      - /app/app.sh
+    # entrypoint: 
+    #   - bash
+    #   - /app/app.sh
     
   cluster-slave-1:
     image: firasj/spark-docker-cluster
@@ -30,23 +34,33 @@ services:
       - spark-cluster
     hostname: cluster-slave-1
     tty: true
-  # cluster-slave-2:
-  #   image: firasj/spark-docker-cluster
-  #   container_name: cluster-slave-2
-  #   networks:
-  #     - spark-cluster
-  #   depends_on:
-  #     - cluster-slave-1
-  #   hostname: cluster-slave-2
-  #   tty: true
-  cassandra-server:
-    image: cassandra
-    container_name: cassandra-server
+    mem_limit: 3g
+    memswap_limit: 6g 
+    mem_reservation: 1g
+
+  cluster-slave-2:
+    image: firasj/spark-docker-cluster
+    container_name: cluster-slave-2
+    networks:
+      - spark-cluster
+    depends_on:
+      - cluster-slave-1
+    hostname: cluster-slave-2
+    tty: true
+    mem_limit: 3g
+    memswap_limit: 6g 
+    mem_reservation: 1g
+
+  scylla-master:
+    image: scylladb/scylla
+    container_name: scylla-master
     ports:
       - "7000:7000"
     networks:
       - spark-cluster
-    
+    mem_limit: 2g
+    memswap_limit: 6g 
+    mem_reservation: 1g
 
 networks:
   spark-cluster:
