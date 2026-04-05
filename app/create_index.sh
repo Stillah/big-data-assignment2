@@ -45,7 +45,7 @@ hadoop jar "$STREAMING_JAR" \
     -D mapreduce.job.reduces=1 \
     -D dfs.client.socket-timeout=60000 \
     -D dfs.client.use.datanode.hostname=true\
-    -input "/input/data" \
+    -input "$HDFS_INPUT_PATH" \
     -output "$HDFS_TEMP" \
     -mapper "python3 -u mapper1.py" \
     -reducer "python3 -u reducer1.py" \
@@ -60,7 +60,7 @@ hadoop jar "$STREAMING_JAR" \
     -D mapreduce.job.reduces=1 \
     -D dfs.client.socket-timeout=60000 \
     -D dfs.client.use.datanode.hostname=true\
-    -input "/input/data" \
+    -input "$HDFS_TEMP" \
     -output "$HDFS_OUTPUT" \
     -mapper "python3 -u mapper2.py" \
     -reducer "python3 -u reducer2.py" \
@@ -73,7 +73,7 @@ echo -e "${GREEN} Pipeline 2 completed${NC}"
 echo -e "\n${GREEN}Index creation finished successfully!${NC}"
 echo "Final index location: $HDFS_OUTPUT"
 echo "Sample entries:"
-hadoop fs -cat "$HDFS_OUTPUT/part-r-*" 2>/dev/null | head -5 | while read line; do
+hadoop fs -cat "$HDFS_OUTPUT/part-*" 2>/dev/null | head -5 | while read line; do
     echo "  $line"
 done
 

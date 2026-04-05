@@ -1,30 +1,7 @@
 #!/bin/bash
-
-################################################################################
-# index.sh
-#
-# Complete indexing pipeline:
-#   1. Create index from documents using MapReduce (create_index.sh)
-#   2. Store index in ScyllaDB (store_index.sh)
-#
-# Usage:
-#   ./index.sh [INPUT_PATH] [CASSANDRA_HOST] [CASSANDRA_PORT]
-#
-# Arguments:
-#   INPUT_PATH        HDFS path to documents (default: /data)
-#   CASSANDRA_HOST    ScyllaDB host (default: localhost)
-#   CASSANDRA_PORT    ScyllaDB port (default: 9042)
-#
-# Examples:
-#   ./index.sh
-#   ./index.sh /data localhost
-#   ./index.sh /data scylla.example.com 9042
-#
-################################################################################
-
 set -e
 
-# Ensure HADOOP_HOME is exported (used by find_hadoop_streaming_jar)
+# used by find_hadoop_streaming_jar
 export HADOOP_HOME=${HADOOP_HOME:-/usr/local/hadoop}
 
 # Color codes
@@ -47,7 +24,6 @@ error() { echo -e "${COLOR_RED}✗${COLOR_RESET} $1"; exit 1; }
 # Main pipeline
 header "Starting Index Pipeline: Create + Store"
 
-# Step 1: Create index using MapReduce
 header "Step 1: Creating Index from Documents"
 echo "Input path: $INPUT_PATH"
 
@@ -58,7 +34,6 @@ fi
 bash "$SCRIPT_DIR/create_index.sh" "$INPUT_PATH" || error "Index creation failed"
 status "Index created successfully"
 
-# Step 2: Store index in ScyllaDB
 header "Step 2: Storing Index in ScyllaDB"
 echo "ScyllaDB host: $CASSANDRA_HOST"
 

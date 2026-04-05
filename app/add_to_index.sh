@@ -1,30 +1,4 @@
 #!/bin/bash
-
-################################################################################
-# add_to_index.sh
-#
-# Adds a new document from the local file system to the existing index.
-#
-# Process:
-#   1. Validate input file exists
-#   2. Upload file to HDFS temporary location
-#   3. Run MapReduce indexing on the document
-#   4. Update ScyllaDB tables with new document data
-#   5. Clean up temporary files
-#
-# Usage:
-#   ./add_to_index.sh <LOCAL_FILE_PATH> [CASSANDRA_HOST]
-#
-# Arguments:
-#   LOCAL_FILE_PATH     Path to document file on local file system
-#   CASSANDRA_HOST      ScyllaDB host (default: localhost)
-#
-# Examples:
-#   ./add_to_index.sh /home/user/new_document.txt
-#   ./add_to_index.sh /tmp/papers/paper.txt scylla.example.com
-#
-################################################################################
-
 set -e
 
 # Color codes
