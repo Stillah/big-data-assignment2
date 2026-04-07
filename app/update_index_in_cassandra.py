@@ -36,7 +36,7 @@ class IndexUpdater:
         """Get the maximum term_id from vocabulary table."""
         try:
             result = self.session.execute(
-                "SELECT MAX(term_id) as max_id FROM vocabulary"
+                "select MAX(term_id) as max_id from vocabulary"
             )
             max_id = result[0].max_id
             return max_id if max_id is not None else 0
@@ -135,16 +135,16 @@ class IndexUpdater:
             if term in existing_terms:
                 # Update existing term's doc_frequency and idf
                 query = f"""
-                    UPDATE vocabulary SET doc_frequency = ?, idf = ?
-                    WHERE term = ?
+                    update vocabulary set doc_frequency = ?, idf = ?
+                    where term = ?
                 """
                 self.session.execute(query, (doc_freq, idf, term))
                 updated += 1
             else:
-                # Insert new term with new term_id
+                # insert new term with new term_id
                 query = f"""
-                    INSERT INTO vocabulary (term_id, term, idf, doc_frequency)
-                    VALUES (?, ?, ?, ?)
+                    insert into vocabulary (term_id, term, idf, doc_frequency)
+                    values (?, ?, ?, ?)
                 """
                 self.session.execute(query, (next_term_id, term, idf, doc_freq))
                 next_term_id += 1
@@ -160,8 +160,8 @@ class IndexUpdater:
         for term, posting_list in postings.items():
             for doc_id, term_freq, tfidf in posting_list:
                 query = f"""
-                    INSERT INTO inverted_index (term, doc_id, term_freq, tfidf)
-                    VALUES (?, ?, ?, ?)
+                    insert into inverted_index (term, doc_id, term_freq, tfidf)
+                    values (?, ?, ?, ?)
                 """
                 self.session.execute(query, (term, doc_id, term_freq, tfidf))
                 inserted += 1
@@ -175,8 +175,8 @@ class IndexUpdater:
         
         for doc_id, (unique_terms, token_count, avg_term_freq) in doc_stats.items():
             query = f"""
-                INSERT INTO document_stats (doc_id, unique_terms, token_count, avg_term_freq)
-                VALUES (?, ?, ?, ?)
+                insert into document_stats (doc_id, unique_terms, token_count, avg_term_freq)
+                values (?, ?, ?, ?)
             """
             self.session.execute(query, (doc_id, unique_terms, token_count, avg_term_freq))
             inserted += 1
@@ -184,27 +184,20 @@ class IndexUpdater:
         logger.info(f"Document statistics updated: {inserted} documents inserted")
     
     def update_collection_stats(self, collection_stats):
-        """
-        Update collection-level statistics.
-        """
         logger.info("Updating collection statistics table")
         
         updated = 0
         
         for stat_name, stat_value in collection_stats.items():
-            query = f"""
-                INSERT INTO collection_stats (stat_name, stat_value)
-                VALUES (?, ?)
-            """
+            query = f"""insert into collection_stats (stat_name, stat_value)
+                        values (?, ?)"""
             self.session.execute(query, (stat_name, stat_value))
             updated += 1
         
         logger.info(f"Collection statistics updated: {updated} statistics")
     
     def update_index(self, index_path):
-        """
-        Main update operation: parse index and update all the tables
-        """
+        """Parse index and update all the tables"""
         logger.info(f"Starting index update from {index_path}")
         
         # Parse the index file

@@ -1,8 +1,8 @@
 #!/bin/bash
 # Create a tiny test file locally and upload to HDFS
-# echo "Hello world this is a test document." > /tmp/test.txt
-# hadoop fs -mkdir -p /input/data
-# hadoop fs -put -f /tmp/test.txt /input/data/
+hadoop fs -get "/data/73284906_A_Guilty_Conscience_(2023_film).txt" /tmp/test.txt
+hadoop fs -mkdir -p /input/data
+hadoop fs -put -f /tmp/test.txt /input/data/
 
 # Run with single mapper, no memory limits
 hadoop fs -rm -r /indexer/test_output

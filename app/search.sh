@@ -3,20 +3,8 @@
 set -e
 
 # Colors for output
-COLOR_RESET='\033[0m'
-COLOR_GREEN='\033[0;32m'
-COLOR_YELLOW='\033[1;33m'
-COLOR_RED='\033[0;31m'
-COLOR_BLUE='\033[0;34m'
-
 CASSANDRA_HOST="${CASSANDRA_HOST:-scylla-master}"
 CASSANDRA_PORT="${CASSANDRA_PORT:-9042}"
-
-# Helper functions
-header() { echo -e "\n${COLOR_BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${COLOR_RESET}\n${COLOR_BLUE}$1${COLOR_RESET}\n${COLOR_BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${COLOR_RESET}"; }
-status() { echo -e "${COLOR_GREEN}✓${COLOR_RESET} $1"; }
-error() { echo -e "${COLOR_RED}✗${COLOR_RESET} $1"; exit 1; }
-info() { echo "  $1"; }
 
 QUERY="$1"
 status "Query: $QUERY"
@@ -26,26 +14,20 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Activate virtual environment if it exists
 if [ -f "$SCRIPT_DIR/.venv/bin/activate" ]; then
-    header "Activating Virtual Environment"
+    echo "Activating Virtual Environment"
     source "$SCRIPT_DIR/.venv/bin/activate"
-    status "Virtual environment activated"
 fi
 
 # Configure PySpark environment
-header "Configuring PySpark Environment"
+echo "Configuring PySpark"
 
 export PYSPARK_DRIVER_PYTHON=$(which python3)
 export PYSPARK_PYTHON=./.venv/bin/python
 
-info "Driver Python: $PYSPARK_DRIVER_PYTHON"
-info "Executor Python: $PYSPARK_PYTHON"
-
-# Run PySpark job on YARN
-header "Submitting Search Query to YARN Cluster"
-
-info "Query: $QUERY"
-info "Master: yarn"
-info ""
+echo "Submitting Search Query"
+echo "Query: $QUERY"
+echo "Master: yarn"
+echo ""
 
 spark-submit \
     --master yarn \
@@ -64,5 +46,6 @@ spark-submit \
     --cassandra-host "$CASSANDRA_HOST" \
     --cassandra-port "$CASSANDRA_PORT" || exit 1
 
-status "Search completed"
+echo ""
+echo "Search completed"
 echo ""

@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 import sys
+import logging
 from collections import defaultdict
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s', stream=sys.stderr)
+logger = logging.getLogger(__name__)
 
 def emit_index_entry(term, doc_freq_map):
     postings = ','.join([f'{doc_id}:{freq}' for doc_id, freq in sorted(doc_freq_map.items())])
@@ -10,44 +14,62 @@ def main():
     current_key = None
     doc_freq_map = {}
     doc_stats = {}
-    
+    line_num = 0
+
     for line in sys.stdin:
+        line_num += 1
         line = line.strip()
         if not line:
             continue
-        
+
         parts = line.split('\t')
         if len(parts) != 2:
+            logger.warning(f"Line {line_num}: malformed (expected 2 tab-separated fields): {line[:100]}")
             continue
-        
+
         key, value = parts
-        
+
         if key.startswith('__DOC_STAT__'):
-            doc_id = key.split(':')[1]
-            stat_parts = value.split(',')
-            if len(stat_parts) == 3:
-                doc_stats[doc_id] = (int(stat_parts[1]), int(stat_parts[2]))
+            # Format: __DOC_STAT__:doc_id
+            try:
+                doc_id = key.split(':', 1)[1]
+                stat_parts = value.split(',')
+                if len(stat_parts) == 3:
+                    doc_stats[doc_id] = (int(stat_parts[1]), int(stat_parts[2]))
+                    logger.info(f"Document stats for {doc_id}: unique={stat_parts[1]}, tokens={stat_parts[2]}")
+                else:
+                    logger.warning(f"Invalid doc stat value: {value}")
+            except Exception as e:
+                logger.error(f"Error parsing doc stat line {line_num}: {e}")
             continue
-        
+
+        # Regular term line
         if current_key is not None and current_key != key:
             emit_index_entry(current_key, doc_freq_map)
             doc_freq_map = {}
-        
+
         current_key = key
-        
+
         for entry in value.split(','):
             if ':' in entry:
-                doc_id, count = entry.split(':')
-                doc_freq_map[doc_id] = doc_freq_map.get(doc_id, 0) + int(count)
-    
+                try:
+                    doc_id, count = entry.split(':')
+                    doc_freq_map[doc_id] = doc_freq_map.get(doc_id, 0) + int(count)
+                except ValueError:
+                    logger.warning(f"Invalid posting entry: {entry}")
+
     if current_key is not None:
         emit_index_entry(current_key, doc_freq_map)
-    
+
+    # Emit document stats
     for doc_id, (unique_terms, token_count) in doc_stats.items():
         print(f'__DOC_STATS__\t{doc_id},{unique_terms},{token_count}')
-    
+
+    # Emit vocabulary
     for term in sorted(doc_freq_map.keys()):
         print(f'__VOCABULARY__\t{term}')
+
+    logger.info(f"Reducer finished. Processed {line_num} lines.")
 
 if __name__ == '__main__':
     main()

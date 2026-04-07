@@ -12,10 +12,6 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# BM25 parameters
-K1 = 1.5  # Term frequency saturation parameter
-B = 0.75  # Length normalization parameter
-
 
 class BM25Searcher:
     """
@@ -24,17 +20,7 @@ class BM25Searcher:
     Uses the Spark ScyllaDB Connector to read index data from Cassandra tables.
     """
     
-    def __init__(self, spark, cassandra_host="localhost", cassandra_port="9042", 
-                 keyspace="search_index"):
-        """
-        Initialize BM25 searcher.
-        
-        Args:
-            spark: SparkSession instance
-            cassandra_host: ScyllaDB host
-            cassandra_port: ScyllaDB port
-            keyspace: Cassandra keyspace name
-        """
+    def __init__(self, spark, cassandra_host="localhost", cassandra_port="9042", keyspace="search_index"):
         self.spark = spark
         self.cassandra_host = cassandra_host
         self.cassandra_port = cassandra_port
@@ -47,16 +33,7 @@ class BM25Searcher:
         logger.info(f"Initialized BM25Searcher for {keyspace} at {cassandra_host}:{cassandra_port}")
     
     def read_cassandra_table(self, table_name):
-        """
-        Read a table from Cassandra using Spark ScyllaDB Connector.
-        
-        Args:
-            table_name: Name of the table in Cassandra keyspace
-            
-        Returns:
-            DataFrame with table contents
-        """
-        logger.info(f"Reading {table_name} from Cassandra")
+        logger.info(f"Reading {table_name}")
         
         df = self.spark.read \
             .format("org.apache.spark.sql.cassandra") \
@@ -67,7 +44,6 @@ class BM25Searcher:
         return df
     
     def load_vocabulary_df(self):
-        """Load vocabulary as a broadcast DataFrame."""
         vocab_df = self.read_cassandra_table("vocabulary")
         # Cache and broadcast
         vocab_df = vocab_df.cache()
@@ -75,12 +51,6 @@ class BM25Searcher:
         return vocab_df
     
     def load_document_stats(self):
-        """
-        Load document statistics from Cassandra as DataFrame.
-        
-        Returns:
-            DataFrame with document statistics
-        """
         logger.info("Loading document statistics")
         
         stats_df = self.read_cassandra_table("document_stats")
@@ -89,17 +59,11 @@ class BM25Searcher:
         return stats_df
     
     def load_collection_stats(self):
-        """
-        Load collection-level statistics from Cassandra.
-        
-        Returns:
-            Broadcast variable containing collection stats dict
-        """
         logger.info("Loading collection statistics")
         
         stats_df = self.read_cassandra_table("collection_stats")
         
-        # Convert to dict - collection stats are typically tiny so safe to collect
+        # Convert to dict
         rows = stats_df.select("stat_name", "stat_value").collect()
         collection_stats = {row.stat_name: row.stat_value for row in rows}
         
@@ -110,13 +74,11 @@ class BM25Searcher:
     
    
     def calculate_bm25(self, query_terms, vocab_df, inverted_index_df,
-                   doc_stats_df, collection_stats_bcast):
-        """Pure DataFrame BM25 calculation – no UDF, no broadcast variable inside UDF."""
-       
+                        doc_stats_df, collection_stats_bcast):      
         collection_stats = collection_stats_bcast.value
         avgdl = float(collection_stats.get("avgdl", "100"))
         
-        # Filter vocabulary to query terms (as DataFrame)
+        # Filter vocabulary to query terms
         query_terms_df = self.spark.createDataFrame([(t,) for t in query_terms], ["term"])
         logger.info("First join started")
         vocab_filtered = vocab_df.join(broadcast(query_terms_df), "term")
@@ -125,7 +87,7 @@ class BM25Searcher:
         logger.info("Second join started")
         filtered_postings = inverted_index_df.join(vocab_filtered, "term")
         
-        # Join with document stats (broadcast because tiny)
+        # Join with document stats
         logger.info("Third join started")
         doc_index = filtered_postings.join(
             broadcast(doc_stats_df),
@@ -135,11 +97,11 @@ class BM25Searcher:
             filtered_postings.doc_id,
             filtered_postings.term,
             filtered_postings.term_freq,
-            vocab_filtered["idf"],                     # idf from vocabulary
+            vocab_filtered["idf"],
             doc_stats_df["token_count"].alias("doc_length")
         ).fillna(avgdl, ["doc_length"])
         
-        # BM25 formula as Spark SQL columns (no UDF)
+        # BM25 parameters
         K1 = lit(1.5)
         B = lit(0.75)
         avgdl_lit = lit(avgdl)
@@ -160,23 +122,19 @@ class BM25Searcher:
         
         return scored_docs
     
-    def format_document_title(self, doc_id):
-        return doc_id[:-3].replace('_', ' ')
     
     def search(self, query_text, top_k=10):
         """
-        Search for documents matching the query using BM25.
+        Search for documents matching the query using BM25
         
-        Args:
-            query_text: User query as string
-            top_k: Number of top results to return (default: 10)
+        query_text: User query as string
+        top_k: Number of top results to return (default: 10)
             
-        Returns:
-            List of (doc_id, bm25_score) tuples sorted by score descending
+        Returns list of (doc_id, bm25_score) tuples sorted by score descending
         """
         logger.info(f"Searching for query: {query_text}")
         
-        # Parse query: lowercase and split into terms
+        # lowercase query and split it into terms
         query_terms = set(query_text.lower().split())
         query_terms = [t.strip() for t in query_terms if len(t.strip()) > 0]
         
@@ -186,7 +144,7 @@ class BM25Searcher:
             logger.warning("No valid query terms")
             return []
                
-        # Load vocabulary as DataFrame (not broadcast dict)
+ 
         vocab_df = self.load_vocabulary_df()
         # vocab_df = vocab_df.coalesce(1)
 
@@ -199,7 +157,7 @@ class BM25Searcher:
         collection_stats_bcast = self.load_collection_stats()
 
         
-        # Filter query terms (using DataFrame this time)
+        # Filter query terms using DatFrame
         existing_terms_df = vocab_df.filter(col("term").isin(query_terms))
         existing_query_terms = [row.term for row in existing_terms_df.select("term").collect()]
         if not existing_query_terms:
@@ -207,38 +165,33 @@ class BM25Searcher:
             return []
         
         logger.info("Starting to calculate BM25")
-        # Calculate BM25 with pure DataFrames
+
         bm25_scores_df = self.calculate_bm25(
             existing_query_terms, vocab_df, inverted_index_df,
             doc_stats_df, collection_stats_bcast
         )
         
         logger.info("Calculated BM25!")
+
         # Get top-k results sorted by score
-        
         top_results_df = bm25_scores_df \
             .orderBy(col("bm25_score").desc()) \
             .limit(top_k)
         
-        # Collect results NOW while Cassandra connection is active
-        # Do NOT return lazy DataFrame - calling show() later will timeout
+        # Collect results while Cassandra connection is active
         try:
             top_results = [(row.doc_id, float(row.bm25_score)) for row in top_results_df.collect()]
             logger.info(f"Collected {len(top_results)} results")
         except Exception as e:
-            logger.error(f"Failed to collect results: {e}", exc_info=True)
+            logger.error(f"Failed to collect results: {e}", exc_info=True) # Might time out here
             top_results = []
         
         return top_results
 
 
-def main():
-    """Main search application."""
-    
+def main():   
     # Parse arguments
-    parser = argparse.ArgumentParser(
-        description="Search indexed documents using BM25 ranking"
-    )
+    parser = argparse.ArgumentParser(description="Search indexed documents using BM25.")
     parser.add_argument(
         "--query",
         required=True,
@@ -262,7 +215,6 @@ def main():
     
     args = parser.parse_args()
     
-    # Create SparkSession
     spark = SparkSession.builder \
         .appName("DocumentSearch-BM25") \
         .config("spark.cassandra.connection.host", args.cassandra_host) \
@@ -270,7 +222,6 @@ def main():
         .getOrCreate()
     
     try:
-        # Initialize searcher
         searcher = BM25Searcher(
             spark,
             cassandra_host=args.cassandra_host,
@@ -280,25 +231,23 @@ def main():
         
         # Search
         query = args.query
-        results = searcher.search(query, top_k=5)
+        results = searcher.search(query, top_k=1)
         
         # Display results
-        print("\n" + "=" * 80)
+        print("\n" + "=" * 75)
         print(f"Search Results for: '{query}'")
-        print("=" * 80)
+        print("=" * 75)
         
         if results:
-            print(f"\nFound {len(results)} relevant document(s):\n")
+            print(f"\n{len(results)} most relevant document(s):\n")
             for rank, (doc_id, score) in enumerate(results, 1):
-                title = searcher.format_document_title(doc_id)
                 print(f"{rank:2d}. {doc_id}")
-                print(f"    Title: {title}")
                 print(f"    Score: {score:.4f}")
                 print()
         else:
             print("\nNo documents found for this query.\n")
         
-        print("=" * 80)
+        print("=" * 75)
                 
         return 0
     

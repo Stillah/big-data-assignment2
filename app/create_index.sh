@@ -1,12 +1,6 @@
 #!/bin/bash
 
-set -e  # Exit on error
-
-# Color codes
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-RED='\033[0;31m'
-NC='\033[0m'
+set -e
 
 # Default paths
 HDFS_INPUT_PATH="${1:-/input/data}"
@@ -21,7 +15,7 @@ REDUCER1="${MAPREDUCE_DIR}/reducer1.py"
 MAPPER2="${MAPREDUCE_DIR}/mapper2.py"
 REDUCER2="${MAPREDUCE_DIR}/reducer2.py"
 
-# Hadoop streaming JAR location (auto-detect)
+# Hadoop streaming JAR location
 find_streaming_jar() {
     local jar=$(ls $HADOOP_HOME/share/hadoop/tools/lib/hadoop-streaming-*.jar 2>/dev/null | head -1)
     [ -n "$jar" ] && echo "$jar" || echo "$HADOOP_HOME/share/hadoop/tools/lib/hadoop-streaming.jar"
@@ -29,7 +23,7 @@ find_streaming_jar() {
 
 STREAMING_JAR=$(find_streaming_jar)
 if [ ! -f "$STREAMING_JAR" ]; then
-    echo -e "${RED}Error: Hadoop streaming JAR not found${NC}"
+    echo "Error: Hadoop streaming JAR not found"
     exit 1
 fi
 
@@ -37,14 +31,25 @@ chmod +x "$MAPPER1" "$REDUCER1" "$MAPPER2" "$REDUCER2"
 
 # Clean previous outputs
 hadoop fs -rm -r "$HDFS_TEMP" "$HDFS_OUTPUT" 2>/dev/null || true
-echo -e "${GREEN}Cleaned old outputs${NC}"
+echo "Cleaned old outputs"
 
-# ==================== PIPELINE 1 ====================
-echo -e "\n${YELLOW}Running Pipeline 1: Tokenization & Term Extraction${NC}"
+echo ""
+echo "Running Pipeline 1: Tokenization & Term Extraction\n"
 hadoop jar "$STREAMING_JAR" \
-    -D mapreduce.job.reduces=1 \
-    -D dfs.client.socket-timeout=60000 \
-    -D dfs.client.use.datanode.hostname=true\
+    -D yarn.nodemanager.aux-services=mapreduce_shuffle \
+    -D yarn.nodemanager.aux-services.mapreduce_shuffle.class=org.apache.hadoop.mapred.ShuffleHandler \
+    -D mapreduce.shuffle.port=13562 \
+    -D yarn.nodemanager.hostname=$(hostname -i) \
+    -D mapreduce.job.maps=2 \
+    -D mapreduce.job.reduces=2 \
+    -D mapreduce.reduce.shuffle.connect.timeout=300000 \
+    -D mapreduce.reduce.shuffle.read.timeout=300000 \
+    -D dfs.client.socket-timeout=600000 \
+    -D mapreduce.reduce.memory.mb=2048 \
+    -D mapreduce.reduce.java.opts="-Xmx1536m -XX:+UseG1GC -XX:MaxGCPauseMillis=200" \
+    -D mapreduce.map.memory.mb=1024 \
+    -D mapreduce.map.java.opts="-Xmx768m" \
+    -D mapreduce.task.timeout=3600000 \
     -input "$HDFS_INPUT_PATH" \
     -output "$HDFS_TEMP" \
     -mapper "python3 -u mapper1.py" \
@@ -52,14 +57,25 @@ hadoop jar "$STREAMING_JAR" \
     -file "$MAPPER1" \
     -file "$REDUCER1"
 
-echo -e "${GREEN}Pipeline 1 completed${NC}"
+echo "Pipeline 1 completed"
 
-# ==================== PIPELINE 2 ====================
-echo -e "\n${YELLOW}Running Pipeline 2: Index Finalization${NC}"
+echo ""
+echo "Running Pipeline 2: Index Finalization"
 hadoop jar "$STREAMING_JAR" \
-    -D mapreduce.job.reduces=1 \
-    -D dfs.client.socket-timeout=60000 \
-    -D dfs.client.use.datanode.hostname=true\
+    -D yarn.nodemanager.aux-services=mapreduce_shuffle \
+    -D yarn.nodemanager.aux-services.mapreduce_shuffle.class=org.apache.hadoop.mapred.ShuffleHandler \
+    -D mapreduce.shuffle.port=13562 \
+    -D yarn.nodemanager.hostname=$(hostname -i) \
+    -D mapreduce.job.maps=2 \
+    -D mapreduce.job.reduces=2 \
+    -D mapreduce.reduce.shuffle.connect.timeout=300000 \
+    -D mapreduce.reduce.shuffle.read.timeout=300000 \
+    -D dfs.client.socket-timeout=600000 \
+    -D mapreduce.reduce.memory.mb=2048 \
+    -D mapreduce.reduce.java.opts="-Xmx1536m -XX:+UseG1GC -XX:MaxGCPauseMillis=200" \
+    -D mapreduce.map.memory.mb=1024 \
+    -D mapreduce.map.java.opts="-Xmx768m" \
+    -D mapreduce.task.timeout=3600000 \
     -input "$HDFS_TEMP" \
     -output "$HDFS_OUTPUT" \
     -mapper "python3 -u mapper2.py" \
@@ -67,14 +83,14 @@ hadoop jar "$STREAMING_JAR" \
     -file "$MAPPER2" \
     -file "$REDUCER2"
 
-echo -e "${GREEN} Pipeline 2 completed${NC}"
+echo "Pipeline 2 completed"
 
-# Summary
-echo -e "\n${GREEN}Index creation finished successfully!${NC}"
+echo ""
+echo "Index creation finished successfully!"
 echo "Final index location: $HDFS_OUTPUT"
 echo "Sample entries:"
 hadoop fs -cat "$HDFS_OUTPUT/part-*" 2>/dev/null | head -5 | while read line; do
     echo "  $line"
 done
 
-echo -e "\n${GREEN}All done.${NC}"
+echo ""
