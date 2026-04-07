@@ -23,9 +23,9 @@ services:
     memswap_limit: 6g 
     mem_reservation: 1g    # Reserved memory (optional)
     # You can comment the entrypoint to run the script manually inside the container
-    # entrypoint: 
-    #   - bash
-    #   - /app/app.sh
+    entrypoint: 
+      - bash
+      - /app/app.sh
     
   cluster-slave-1:
     image: firasj/spark-docker-cluster
